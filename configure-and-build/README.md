@@ -3,6 +3,8 @@
 The action's default native CMake build arguments are unchanged. Windows uses
 `--config Release`; other platforms retain the configured build type.
 `CMAKE_BUILD_PARALLEL_LEVEL` remains effective when no explicit budget is passed.
+With the option disabled, the action retains its direct CMake/tee build path;
+the Python build helper is used only for the enabled Windows option.
 
 ## Optional shared MSBuild compiler budget
 

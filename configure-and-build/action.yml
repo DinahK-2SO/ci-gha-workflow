@@ -63,14 +63,17 @@ runs:
       run: |
         set -x
         echo "::group::Build"
-        pyexe=python3
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          pyexe=python
+        if [ "$OCV_SHARED_CAP" == "true" ]; then
+          python "$GITHUB_ACTION_PATH/build.py" \
+            --builddir "$OCV_BUILD_DIR" --runner-os "$RUNNER_OS" \
+            --generator "$OCV_GENERATOR" \
+            --shared-cap "$OCV_SHARED_CAP" --compiler-jobs "$OCV_COMPILER_JOBS"
+        else
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            cfg="--config Release"
+          fi
+          cmake --build "$OCV_BUILD_DIR" ${cfg} 2>&1 | tee "$OCV_BUILD_DIR/log.txt"
         fi
-        ${pyexe} "$GITHUB_ACTION_PATH/build.py" \
-          --builddir "$OCV_BUILD_DIR" --runner-os "$RUNNER_OS" \
-          --generator "$OCV_GENERATOR" \
-          --shared-cap "$OCV_SHARED_CAP" --compiler-jobs "$OCV_COMPILER_JOBS"
         echo "::endgroup::"
 
     - shell: bash
