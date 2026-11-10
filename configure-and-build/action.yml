@@ -11,10 +11,34 @@ inputs:
     description: "CMake generator, e.g. Ninja"
   options:
     description: "Extra CMake options"
+  msbuild_shared_cap:
+    description: "Enable shared compiler-process scheduling for Windows Visual Studio builds"
+    default: "false"
+  msbuild_compiler_jobs:
+    description: "Positive shared compiler/project budget; required only when msbuild_shared_cap is true"
+    default: ""
 
 runs:
   using: "composite"
   steps:
+
+    - if: ${{ inputs.msbuild_shared_cap != 'false' || inputs.msbuild_compiler_jobs != '' }}
+      shell: bash
+      env:
+        OCV_BUILD_DIR: ${{ inputs.builddir }}
+        OCV_GENERATOR: ${{ inputs.generator }}
+        OCV_SHARED_CAP: ${{ inputs.msbuild_shared_cap }}
+        OCV_COMPILER_JOBS: ${{ inputs.msbuild_compiler_jobs }}
+      run: |
+        pyexe=python3
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          pyexe=python
+        fi
+        ${pyexe} "$GITHUB_ACTION_PATH/build.py" \
+          --builddir "$OCV_BUILD_DIR" --runner-os "$RUNNER_OS" \
+          --generator "$OCV_GENERATOR" \
+          --shared-cap "$OCV_SHARED_CAP" --compiler-jobs "$OCV_COMPILER_JOBS" \
+          --validate-only
 
     - working-directory: ${{ inputs.workdir }}
       shell: bash
@@ -31,13 +55,22 @@ runs:
 
     - working-directory: ${{ inputs.workdir }}
       shell: bash
+      env:
+        OCV_BUILD_DIR: ${{ inputs.builddir }}
+        OCV_GENERATOR: ${{ inputs.generator }}
+        OCV_SHARED_CAP: ${{ inputs.msbuild_shared_cap }}
+        OCV_COMPILER_JOBS: ${{ inputs.msbuild_compiler_jobs }}
       run: |
         set -x
         echo "::group::Build"
+        pyexe=python3
         if [ "$RUNNER_OS" == "Windows" ]; then
-          cfg="--config Release"
+          pyexe=python
         fi
-        cmake --build '${{ inputs.builddir }}' ${cfg} 2>&1 | tee '${{ inputs.builddir }}/log.txt'
+        ${pyexe} "$GITHUB_ACTION_PATH/build.py" \
+          --builddir "$OCV_BUILD_DIR" --runner-os "$RUNNER_OS" \
+          --generator "$OCV_GENERATOR" \
+          --shared-cap "$OCV_SHARED_CAP" --compiler-jobs "$OCV_COMPILER_JOBS"
         echo "::endgroup::"
 
     - shell: bash
