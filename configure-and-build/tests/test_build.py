@@ -80,6 +80,25 @@ class BuildArgumentsTests(unittest.TestCase):
 
 
 class BuildProcessTests(unittest.TestCase):
+    def test_build_does_not_inherit_interactive_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            logfile = Path(directory) / "build log.txt"
+            code = (
+                "import importlib.util,sys;"
+                "s=importlib.util.spec_from_file_location('b',sys.argv[1]);"
+                "m=importlib.util.module_from_spec(s);s.loader.exec_module(m);"
+                "sys.exit(m.run_build([sys.executable,'-c',"
+                "\"import sys;print(len(sys.stdin.read()))\"],sys.argv[2]))"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", code, str(SCRIPT), str(logfile)],
+                input=b"must not reach the build", stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), b"0")
+            self.assertEqual(logfile.read_bytes(), result.stdout)
+
     def test_output_is_teed_and_native_failure_is_propagated(self):
         with tempfile.TemporaryDirectory() as directory:
             logfile = Path(directory) / "build log.txt"

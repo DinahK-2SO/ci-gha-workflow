@@ -36,7 +36,9 @@ python configure-and-build/build.py --builddir <configured-build-directory> --ge
 The example budget is not a universal optimum. The helper does not clone,
 configure, clean, install tools, change system settings or dispatch jobs.
 It preserves CMake output in `<builddir>/log.txt`, streams it to the caller
-and returns the native build exit code. Validate arguments without starting a
+and returns the native build exit code. The build receives noninteractive stdin,
+including when launched by a service with no valid inherited input handle.
+Validate arguments without starting a
 build by adding `--validate-only`.
 
 Record source and workflow repository commits, effective configuration and

@@ -48,7 +48,9 @@ def check_generator(builddir, expected):
 
 def run_build(command, log_path):
     with open(log_path, "wb") as log:
-        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as process:
+        with subprocess.Popen(
+            command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        ) as process:
             for chunk in iter(lambda: process.stdout.read1(65536), b""):
                 log.write(chunk)
                 sys.stdout.buffer.write(chunk)
