@@ -22,23 +22,26 @@ runs:
   using: "composite"
   steps:
 
-    - if: ${{ inputs.msbuild_shared_cap != 'false' || inputs.msbuild_compiler_jobs != '' }}
+    - name: Validate shared MSBuild scheduling
+      if: ${{ inputs.msbuild_shared_cap != 'false' || inputs.msbuild_compiler_jobs != '' }}
       shell: bash
       env:
-        OCV_BUILD_DIR: ${{ inputs.builddir }}
         OCV_GENERATOR: ${{ inputs.generator }}
         OCV_SHARED_CAP: ${{ inputs.msbuild_shared_cap }}
         OCV_COMPILER_JOBS: ${{ inputs.msbuild_compiler_jobs }}
       run: |
-        pyexe=python3
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          pyexe=python
+        if [[ "$OCV_SHARED_CAP" != "true" ]]; then
+          echo "::error::A compiler budget requires msbuild_shared_cap=true."
+          exit 2
         fi
-        ${pyexe} "$GITHUB_ACTION_PATH/build.py" \
-          --builddir "$OCV_BUILD_DIR" --runner-os "$RUNNER_OS" \
-          --generator "$OCV_GENERATOR" \
-          --shared-cap "$OCV_SHARED_CAP" --compiler-jobs "$OCV_COMPILER_JOBS" \
-          --validate-only
+        if [[ "$RUNNER_OS" != "Windows" || "$OCV_GENERATOR" != "Visual Studio "* ]]; then
+          echo "::error::Shared MSBuild scheduling requires Windows and a Visual Studio generator."
+          exit 2
+        fi
+        if [[ ! "$OCV_COMPILER_JOBS" =~ ^[1-9][0-9]*$ ]]; then
+          echo "::error::msbuild_compiler_jobs must be a positive decimal integer."
+          exit 2
+        fi
 
     - working-directory: ${{ inputs.workdir }}
       shell: bash
@@ -57,23 +60,25 @@ runs:
       shell: bash
       env:
         OCV_BUILD_DIR: ${{ inputs.builddir }}
-        OCV_GENERATOR: ${{ inputs.generator }}
         OCV_SHARED_CAP: ${{ inputs.msbuild_shared_cap }}
         OCV_COMPILER_JOBS: ${{ inputs.msbuild_compiler_jobs }}
       run: |
         set -x
         echo "::group::Build"
-        if [ "$OCV_SHARED_CAP" == "true" ]; then
-          python "$GITHUB_ACTION_PATH/build.py" \
-            --builddir "$OCV_BUILD_DIR" --runner-os "$RUNNER_OS" \
-            --generator "$OCV_GENERATOR" \
-            --shared-cap "$OCV_SHARED_CAP" --compiler-jobs "$OCV_COMPILER_JOBS"
-        else
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            cfg="--config Release"
-          fi
-          cmake --build "$OCV_BUILD_DIR" ${cfg} 2>&1 | tee "$OCV_BUILD_DIR/log.txt"
+        msbuild_args=()
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          cfg="--config Release"
         fi
+        if [ "$OCV_SHARED_CAP" == "true" ]; then
+          msbuild_args=(--parallel "$OCV_COMPILER_JOBS" --
+            /p:MultiProcCL=true "/p:MultiProcMaxCount=$OCV_COMPILER_JOBS"
+            /p:EnforceProcessCountAcrossBuilds=true /nr:false)
+          # Git Bash must not rewrite native MSBuild switches as filesystem paths.
+          if [ "${MSYS2_ARG_CONV_EXCL:-}" != "*" ]; then
+            export MSYS2_ARG_CONV_EXCL="${MSYS2_ARG_CONV_EXCL:+${MSYS2_ARG_CONV_EXCL};}/p:;/nr:"
+          fi
+        fi
+        cmake --build "$OCV_BUILD_DIR" ${cfg} "${msbuild_args[@]}" 2>&1 | tee "$OCV_BUILD_DIR/log.txt"
         echo "::endgroup::"
 
     - shell: bash
