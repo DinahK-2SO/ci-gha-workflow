@@ -20,7 +20,7 @@ on:
         required: false
         type: string
       msbuild_shared_cap:
-        description: "Opt in to shared MSBuild scheduling for the 5.x ARM64 row"
+        description: "Opt in to shared MSBuild scheduling for Windows Visual Studio builds"
         default: false
         required: false
         type: boolean
@@ -150,8 +150,8 @@ jobs:
         builddir: 'build'
         generator: '${{ matrix.vs }}'
         options: '-A ${{ matrix.cmake_arch }} ${{ env.CMAKE_OPT }}'
-        msbuild_shared_cap: ${{ inputs.msbuild_shared_cap && matrix.arch == 'arm64' && matrix.branch == '5.x' }}
-        msbuild_compiler_jobs: ${{ inputs.msbuild_shared_cap && matrix.arch == 'arm64' && matrix.branch == '5.x' && env.CMAKE_BUILD_PARALLEL_LEVEL || '' }}
+        msbuild_shared_cap: ${{ inputs.msbuild_shared_cap }}
+        msbuild_compiler_jobs: ${{ inputs.msbuild_shared_cap && env.CMAKE_BUILD_PARALLEL_LEVEL || '' }}
 
     - name: Configure and build OpenCV with contrib
       uses: ./configure-and-build
@@ -160,8 +160,8 @@ jobs:
         builddir: 'build-contrib'
         generator: '${{ matrix.vs }}'
         options: '-A ${{ matrix.cmake_arch }} -DCMAKE_BUILD_TYPE=Release -DOPENCV_EXTRA_MODULES_PATH=opencv_contrib/modules ${{ env.CMAKE_OPT }}'
-        msbuild_shared_cap: ${{ inputs.msbuild_shared_cap && matrix.arch == 'arm64' && matrix.branch == '5.x' }}
-        msbuild_compiler_jobs: ${{ inputs.msbuild_shared_cap && matrix.arch == 'arm64' && matrix.branch == '5.x' && env.CMAKE_BUILD_PARALLEL_LEVEL || '' }}
+        msbuild_shared_cap: ${{ inputs.msbuild_shared_cap }}
+        msbuild_compiler_jobs: ${{ inputs.msbuild_shared_cap && env.CMAKE_BUILD_PARALLEL_LEVEL || '' }}
 
     - name: Run OpenCV tests
       uses: ./run-tests
