@@ -11,37 +11,10 @@ inputs:
     description: "CMake generator, e.g. Ninja"
   options:
     description: "Extra CMake options"
-  msbuild_shared_cap:
-    description: "Enable shared compiler-process scheduling for Windows Visual Studio builds"
-    default: "false"
-  msbuild_compiler_jobs:
-    description: "Positive shared compiler/project budget; required only when msbuild_shared_cap is true"
-    default: ""
 
 runs:
   using: "composite"
   steps:
-
-    - name: Validate shared MSBuild scheduling
-      if: ${{ inputs.msbuild_shared_cap != 'false' || inputs.msbuild_compiler_jobs != '' }}
-      shell: bash
-      env:
-        OCV_GENERATOR: ${{ inputs.generator }}
-        OCV_SHARED_CAP: ${{ inputs.msbuild_shared_cap }}
-        OCV_COMPILER_JOBS: ${{ inputs.msbuild_compiler_jobs }}
-      run: |
-        if [[ "$OCV_SHARED_CAP" != "true" ]]; then
-          echo "::error::A compiler budget requires msbuild_shared_cap=true."
-          exit 2
-        fi
-        if [[ "$RUNNER_OS" != "Windows" || "$OCV_GENERATOR" != "Visual Studio "* ]]; then
-          echo "::error::Shared MSBuild scheduling requires Windows and a Visual Studio generator."
-          exit 2
-        fi
-        if [[ ! "$OCV_COMPILER_JOBS" =~ ^[1-9][0-9]*$ ]]; then
-          echo "::error::msbuild_compiler_jobs must be a positive decimal integer."
-          exit 2
-        fi
 
     - working-directory: ${{ inputs.workdir }}
       shell: bash
@@ -60,8 +33,7 @@ runs:
       shell: bash
       env:
         OCV_BUILD_DIR: ${{ inputs.builddir }}
-        OCV_SHARED_CAP: ${{ inputs.msbuild_shared_cap }}
-        OCV_COMPILER_JOBS: ${{ inputs.msbuild_compiler_jobs }}
+        OCV_GENERATOR: ${{ inputs.generator }}
       run: |
         set -x
         echo "::group::Build"
@@ -69,9 +41,14 @@ runs:
         if [ "$RUNNER_OS" == "Windows" ]; then
           cfg="--config Release"
         fi
-        if [ "$OCV_SHARED_CAP" == "true" ]; then
-          msbuild_args=(--parallel "$OCV_COMPILER_JOBS" --
-            /p:MultiProcCL=true "/p:MultiProcMaxCount=$OCV_COMPILER_JOBS"
+        if [[ "$RUNNER_OS" == "Windows" && "$OCV_GENERATOR" == "Visual Studio "* &&
+              -n "${CMAKE_BUILD_PARALLEL_LEVEL:-}" ]]; then
+          if [[ ! "$CMAKE_BUILD_PARALLEL_LEVEL" =~ ^0*[1-9][0-9]*$ ]]; then
+            echo "::error::CMAKE_BUILD_PARALLEL_LEVEL must be a positive decimal integer."
+            exit 2
+          fi
+          msbuild_args=(--parallel "$CMAKE_BUILD_PARALLEL_LEVEL" --
+            /p:MultiProcCL=true "/p:MultiProcMaxCount=$CMAKE_BUILD_PARALLEL_LEVEL"
             /p:EnforceProcessCountAcrossBuilds=true /nr:false)
           # Git Bash must not rewrite native MSBuild switches as filesystem paths.
           if [ "${MSYS2_ARG_CONV_EXCL:-}" != "*" ]; then
