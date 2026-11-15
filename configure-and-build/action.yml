@@ -59,7 +59,7 @@ runs:
           fi
           msbuild_args=(--parallel "$CMAKE_BUILD_PARALLEL_LEVEL" --
             /p:MultiProcCL=true "/p:MultiProcMaxCount=$compiler_jobs"
-            /p:EnforceProcessCountAcrossBuilds=true)
+            /p:EnforceProcessCountAcrossBuilds=true /p:EnableClServerMode=true)
           # Git Bash must not rewrite native MSBuild switches as filesystem paths.
           if [ "${MSYS2_ARG_CONV_EXCL:-}" != "*" ]; then
             export MSYS2_ARG_CONV_EXCL="${MSYS2_ARG_CONV_EXCL:+${MSYS2_ARG_CONV_EXCL};}/p:"
